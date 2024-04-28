@@ -1,0 +1,6 @@
+fiss
+data/processed
+data/raw
+/data/__pycache__/*.pyc
+/__pycache__
+/GraphModel/__pycache__

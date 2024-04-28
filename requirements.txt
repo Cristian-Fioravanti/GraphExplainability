@@ -1,0 +1,10 @@
+torchmetrics
+sparticles
+numpy
+torch_geometric
+matplotlib
+scikit-learn
+seaborn
+plotly
+tables
+torch --index-url https://download.pytorch.org/whl/cu118
