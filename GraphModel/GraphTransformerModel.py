@@ -23,7 +23,9 @@ class GraphTransformerModel(nn.Module):
         self.gelu2 = nn.GELU()
         self.aggregate = global_mean_pool
         self.linear3 = nn.Linear(hidden_size // 2, out_size)
-
+      # Classification token
+        self.cls_token = nn.Parameter(torch.zeros(1, 1, hidden_size))
+    
     def forward(self, data, batch=None):
         A = to_dense_adj(data.edge_index)[0]                # Convert edge index to adjacency matrix
         if self.normalization == True:                      #If normalization is true normalize the data
@@ -31,17 +33,24 @@ class GraphTransformerModel(nn.Module):
         else:
            h = self.embedding(data.x)
 
+        # Add the classification token
+        cls_tokens = self.cls_token.expand(h.size(0), -1, -1)
+        h = torch.cat((cls_tokens, h), dim=1)
+
         #Compute GT layers
         for layer in self.layers:
             h = layer(A, h)
 
+        # Extract the classification token
+        cls_token_final = h[:, 0]
+
         # Linear layers for prediction
-        h = self.linear1(h)
+        h = self.linear1(cls_token_final)
         h = self.gelu1(h)
         h = self.linear2(h)
         h = self.gelu2(h)
         # Control where you have to aggregate
-        h = self.aggregate(h, data.batch)
+        # h = self.aggregate(h, data.batch)
         h = self.linear3(h)
 
         return h
@@ -51,21 +60,27 @@ class GraphTransformerModel(nn.Module):
         with torch.no_grad():
             # Apply the learned embedding transformation to input_data.x
             if self.normalization == True:
-               embedded_data = self.embedding(input_data.data_norm)
+                embedded_data = self.embedding(input_data.data_norm)
             else:
-               embedded_data = self.embedding(input_data.x)
-            h = embedded_data
-        return h
-    
+                embedded_data = self.embedding(input_data.x)
+                    # Add the classification token
+            cls_tokens = self.cls_token.expand(h.size(0), -1, -1)
+            h = torch.cat((cls_tokens, h), dim=1)
+        return embedded_data
+
     def apply_GTLayer(self,input_data,h,index_layer):
         with torch.no_grad():
             A = to_dense_adj(input_data.edge_index)[0]
             return self.layers[index_layer](A, h)
-        
+
     def predict_from_residual_connection(self, input_data, h):
         with torch.no_grad():
             # Linear layers for prediction
-            h = self.linear1(h)
+                # Extract the classification token
+            cls_token_final = h[:, 0]
+
+            # Linear layers for prediction
+            h = self.linear1(cls_token_final)
             h = self.gelu1(h)
             h = self.linear2(h)
             h = self.gelu2(h)
@@ -73,25 +88,74 @@ class GraphTransformerModel(nn.Module):
             h = self.aggregate(h, input_data.batch)
             h = self.linear3(h)
             return h
+    # def forward(self, data, batch=None):
+    #     A = to_dense_adj(data.edge_index)[0]                # Convert edge index to adjacency matrix
+    #     if self.normalization == True:                      #If normalization is true normalize the data
+    #        h = self.embedding(data.data_norm)
+    #     else:
+    #        h = self.embedding(data.x)
+
+    #     #Compute GT layers
+    #     for layer in self.layers:
+    #         h = layer(A, h)
+
+    #     # Linear layers for prediction
+    #     h = self.linear1(h)
+    #     h = self.gelu1(h)
+    #     h = self.linear2(h)
+    #     h = self.gelu2(h)
+    #     # Control where you have to aggregate
+    #     h = self.aggregate(h, data.batch)
+    #     h = self.linear3(h)
+
+    #     return h
+
+    # #method used in the explainability part
+    # def apply_embedding(self, input_data):
+    #     with torch.no_grad():
+    #         # Apply the learned embedding transformation to input_data.x
+    #         if self.normalization == True:
+    #            embedded_data = self.embedding(input_data.data_norm)
+    #         else:
+    #            embedded_data = self.embedding(input_data.x)
+    #         h = embedded_data
+    #     return h
+    
+    # def apply_GTLayer(self,input_data,h,index_layer):
+    #     with torch.no_grad():
+    #         A = to_dense_adj(input_data.edge_index)[0]
+    #         return self.layers[index_layer](A, h)
         
-    def forward_with_no_grad(self, data, batch=None):
-        A = to_dense_adj(data.edge_index)[0]                # Convert edge index to adjacency matrix
-        if self.normalization == True:                      #If normalization is true normalize the data
-           h = self.embedding(data.data_norm)
-        else:
-           h = self.embedding(data.x)
+    # def predict_from_residual_connection(self, input_data, h):
+    #     with torch.no_grad():
+    #         # Linear layers for prediction
+    #         h = self.linear1(h)
+    #         h = self.gelu1(h)
+    #         h = self.linear2(h)
+    #         h = self.gelu2(h)
+    #         # Control where you have to aggregate
+    #         h = self.aggregate(h, input_data.batch)
+    #         h = self.linear3(h)
+    #         return h
+        
+    # def forward_with_no_grad(self, data, batch=None):
+    #     A = to_dense_adj(data.edge_index)[0]                # Convert edge index to adjacency matrix
+    #     if self.normalization == True:                      #If normalization is true normalize the data
+    #        h = self.embedding(data.data_norm)
+    #     else:
+    #        h = self.embedding(data.x)
 
-        #Compute GT layers
-        for layer in self.layers:
-            h = layer(A, h)
+    #     #Compute GT layers
+    #     for layer in self.layers:
+    #         h = layer(A, h)
 
-        # Linear layers for prediction
-        h = self.linear1(h)
-        h = self.gelu1(h)
-        h = self.linear2(h)
-        h = self.gelu2(h)
-        # Control where you have to aggregate
-        h = self.aggregate(h, data.batch)
-        h = self.linear3(h)
+    #     # Linear layers for prediction
+    #     h = self.linear1(h)
+    #     h = self.gelu1(h)
+    #     h = self.linear2(h)
+    #     h = self.gelu2(h)
+    #     # Control where you have to aggregate
+    #     h = self.aggregate(h, data.batch)
+    #     h = self.linear3(h)
 
-        return h
+    #     return h
