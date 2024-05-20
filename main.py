@@ -142,15 +142,16 @@ for index_x, data in enumerate(test_loader):
         targets.extend(data.y.tolist())
 
     # Case 1
-    out = model.forward_with_no_grad(originalGraph)
+    out = model(originalGraph)
     pred = out.argmax(dim=1)
     predictionsCase1.extend(out.tolist())
     targetsCase1.extend(originalGraph.y.tolist())
+    
     # Case 2
     for index, patch in enumerate(originalGraph.x):
         patchGraph = originalGraph
         patchGraph.x = patch
-        out = model.forward_with_no_grad(patchGraph)
+        out = model(patchGraph)
         pred = out.argmax(dim=1)
         predictionsCase2.extend(out.tolist())
         targetsCase2.extend(patchGraph.y.tolist())

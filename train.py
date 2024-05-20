@@ -29,13 +29,13 @@ from data.datasetClass import CustomEventsDataset
 
 config=dict(
       out_size = 2,
-      num_layers=2,
+      num_layers=1,
       hidden_size=60,
       input_size=12,
       num_heads= 4,
       learning_rate = 0.0005,
       weight_decay=0.0005,
-      batch_size = 512,
+      batch_size = 1,
       signal=400000,
       singletop=200000,
       ttbar=200000,
@@ -123,7 +123,9 @@ def train_and_evaluate(epochs):
         targets_train = []
 
         for data in tqdm(train_loader, leave=False):
-            out = model(data.to(device))
+            data = data.to(device)
+            out = model(data)
+            print(out)
             loss = criterion(out, data.y)
             loss.backward()
             optimizer.step()
@@ -194,7 +196,7 @@ def train_and_evaluate(epochs):
 
 
     print(f'Epoch: {epoch:03d}')
-    filepath = f'./checkpoint/checkpoint_epoch_{epoch:03d}_2l.pt'    
+    filepath = f'./checkpoint/checkpoint_epoch_{epoch:03d}_2l (2).pt'    
     torch.save(model.state_dict(), filepath)
     #print(f'Epoch: {epoch:03d}, Test Acc: {test_acc:.4f}, Test Loss: {test_losses[-1]:.4f}, Test Precision: {test_precision:.4f}, Test Recall: {test_recall:.4f}, Test F1: {test_f1:.4f}, Test AUC: {test_auc:.4f}')
 

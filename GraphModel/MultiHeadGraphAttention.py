@@ -31,6 +31,7 @@ class MultiHeadGraphAttention(nn.Module):
         k = k.view(N, self.num_heads, self.head_size).transpose(0, 1)  # (num_heads, N, head_size)
         v = v.view(N, self.num_heads, self.head_size).transpose(0, 1)  # (num_heads, N, head_size)
 
+     
         #compute attention scores
         scores = torch.matmul(q, k.transpose(1, 2)) * A.unsqueeze(0) / (N ** (-0.5)) #(num_heads, N, N) attention score between a pair of nodes for each attention head
         scores = F.softmax(scores, dim=2)
