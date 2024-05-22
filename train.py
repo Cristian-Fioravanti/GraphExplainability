@@ -26,16 +26,17 @@ import numpy as np
 
 from GraphModel.GraphTransformerModel import GraphTransformerModel
 from data.datasetClass import CustomEventsDataset
+import pickle
 
 config=dict(
       out_size = 2,
-      num_layers=1,
+      num_layers=5,
       hidden_size=60,
       input_size=12,
       num_heads= 4,
       learning_rate = 0.0005,
       weight_decay=0.0005,
-      batch_size = 1,
+      batch_size = 2,
       signal=400000,
       singletop=200000,
       ttbar=200000,
@@ -84,14 +85,15 @@ model = GraphTransformerModel(out_size= config['out_size'],
                               num_layers = config['num_layers'],
                               num_heads = config['num_heads'],
                               dropout = config['dropout'],
-                              normalization = config['normalization']).to(device)
+                              normalization = config['normalization'],
+                              batch_size=config['batch_size']).to(device)
 
 #define optimizer, criterion and lr schedule
 optimizer = torch.optim.Adam(model.parameters(), lr=config['learning_rate'],weight_decay=config['weight_decay'])
 criterion = torch.nn.CrossEntropyLoss()
 #lr_scheduler = StepLR(optimizer, step_size=10, gamma=0.5)
 
-
+file_name = './training_data.pkl'
 #training and test the model
 train_losses = []
 test_losses = []
@@ -124,8 +126,8 @@ def train_and_evaluate(epochs):
 
         for data in tqdm(train_loader, leave=False):
             data = data.to(device)
-            out = model(data)
-            print(out)
+            out = model(data,len(data))
+
             loss = criterion(out, data.y)
             loss.backward()
             optimizer.step()
@@ -167,7 +169,7 @@ def train_and_evaluate(epochs):
 
         with torch.no_grad():
             for data in tqdm(test_loader, leave=False):
-                out = model(data.to(device))
+                out = model(data.to(device),len(data))
                 loss = criterion(out, data.y)
                 total_loss += loss.item()
 
@@ -194,7 +196,14 @@ def train_and_evaluate(epochs):
         test_f1_scores.append(test_f1)
         test_auc_scores.append(test_auc)
 
-
+    with open(file_name, 'wb') as file:
+        pickle.dump({
+            'train_loss_steps': train_loss_steps,
+            'train_acc_steps': train_acc_steps,
+            'test_loss_steps': test_loss_steps,
+            'test_acc_steps': test_acc_steps
+        }, file)
+    
     print(f'Epoch: {epoch:03d}')
     filepath = f'./checkpoint/checkpoint_epoch_{epoch:03d}_2l (2).pt'    
     torch.save(model.state_dict(), filepath)

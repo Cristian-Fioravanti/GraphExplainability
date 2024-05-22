@@ -24,19 +24,21 @@ class GraphTransformerModel(nn.Module):
         self.linear3 = nn.Linear(hidden_size // 2, out_size)
         self.class_token = nn.Parameter(torch.zeros(1, hidden_size))
 
-    def forward(self, data, batch=None):
-        # Numero di nodi attuale (prima di aggiungere il nuovo nodo)
-        num_nodes = torch.max(data.edge_index).item() + 1  # Numero di nodi presenti, assumi che i nodi siano numerati consecutivamente
+    def forward(self, data, data_len, batch=None):
+        for numBatch in range(data_len):
+            # Numero di nodi attuale (prima di aggiungere il nuovo nodo)
+            num_nodes = torch.max(data.edge_index).item() + 1  # Numero di nodi presenti, assumi che i nodi siano numerati consecutivamente
 
-        # Specifica il nuovo nodo
-        new_node = num_nodes  # Il nuovo nodo sarà num_nodes (se prima era 6 nodi, il nuovo nodo sarà 6)
+            # Specifica il nuovo nodo
+            new_node = num_nodes  # Il nuovo nodo sarà num_nodes (se prima era 6 nodi, il nuovo nodo sarà 6)
 
-        # Crea i nuovi collegamenti per il nuovo nodo con tutti i nodi esistenti
-        new_edges = torch.tensor([[new_node] * num_nodes + list(range(num_nodes)),
-                                list(range(num_nodes)) + [new_node] * num_nodes], device='cuda')
-        
-        # Aggiungi i nuovi bordi a edge_index esistente
-        edge_index = torch.cat([data.edge_index, new_edges], dim=1)
+            # Crea i nuovi collegamenti per il nuovo nodo con tutti i nodi esistenti
+            new_edges = torch.tensor([[new_node] * num_nodes + list(range(num_nodes)),
+                                    list(range(num_nodes)) + [new_node] * num_nodes], device='cuda')
+            
+            # Aggiungi i nuovi bordi a edge_index esistente
+            edge_index = torch.cat([data.edge_index, new_edges], dim=1)
+
         A = to_dense_adj(edge_index)[0]                # Convert edge index to adjacency matrix
 
         class_token = self.class_token.expand(1, -1)  # Expand batch size
@@ -49,7 +51,7 @@ class GraphTransformerModel(nn.Module):
         for layer in self.layers:
             h = layer(A, h)
 
-        last_row = h[-1, :].unsqueeze(0)
+        last_row = h[-data_len: , :]
         # Linear layers for prediction
         h = self.linear1(last_row)
         h = self.gelu1(h)
