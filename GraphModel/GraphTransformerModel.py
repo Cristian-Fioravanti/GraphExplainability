@@ -5,7 +5,7 @@ from torch_geometric.utils import to_dense_adj
 from torch_geometric.nn import global_mean_pool
 import torch
 class GraphTransformerModel(nn.Module):
-    def __init__(self, out_size, input_size=12, hidden_size=40, num_layers=4, num_heads=3,dropout=0.3, normalization=True):
+    def __init__(self, out_size, input_size=12, hidden_size=40, num_layers=4, num_heads=3,dropout=0.3, normalization=True, batch_size=512):
         super(GraphTransformerModel, self).__init__()
 
         self.normalization = normalization
@@ -22,7 +22,7 @@ class GraphTransformerModel(nn.Module):
         self.linear2 = nn.Linear(hidden_size, hidden_size // 2)
         self.gelu2 = nn.GELU()
         self.linear3 = nn.Linear(hidden_size // 2, out_size)
-        self.class_token = nn.Parameter(torch.zeros(1, hidden_size))
+        self.class_token = nn.Parameter(torch.zeros(batch_size, hidden_size))
 
     def forward(self, data, data_len, batch=None):
         for numBatch in range(data_len):
@@ -37,16 +37,19 @@ class GraphTransformerModel(nn.Module):
                                     list(range(num_nodes)) + [new_node] * num_nodes], device='cuda')
             
             # Aggiungi i nuovi bordi a edge_index esistente
-            edge_index = torch.cat([data.edge_index, new_edges], dim=1)
+            data.edge_index = torch.cat([data.edge_index, new_edges], dim=1)
 
-        A = to_dense_adj(edge_index)[0]                # Convert edge index to adjacency matrix
-
-        class_token = self.class_token.expand(1, -1)  # Expand batch size
+        A = to_dense_adj(data.edge_index)[0]                # Convert edge index to adjacency matrix
+        
+        class_token = self.class_token.expand(data_len, -1)  # Expand batch size
+        
         if self.normalization == True:                      #If normalization is true normalize the data
            h = self.embedding(data.data_norm)
         else:
            h = self.embedding(data.x)
+        
         h = torch.cat((h,class_token),dim=0)
+        
         #Compute GT layers
         for layer in self.layers:
             h = layer(A, h)

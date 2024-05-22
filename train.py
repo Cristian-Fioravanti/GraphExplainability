@@ -30,13 +30,13 @@ import pickle
 
 config=dict(
       out_size = 2,
-      num_layers=5,
+      num_layers=2,
       hidden_size=60,
       input_size=12,
       num_heads= 4,
       learning_rate = 0.0005,
       weight_decay=0.0005,
-      batch_size = 2,
+      batch_size = 512,
       signal=400000,
       singletop=200000,
       ttbar=200000,
