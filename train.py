@@ -127,7 +127,6 @@ def train_and_evaluate(epochs):
         for data in tqdm(train_loader, leave=False):
             data = data.to(device)
             out = model(data,len(data))
-
             loss = criterion(out, data.y)
             loss.backward()
             optimizer.step()

@@ -4,6 +4,7 @@ import torch.nn.functional as F
 from torch_geometric.utils import to_dense_adj
 from torch_geometric.nn import global_mean_pool
 import torch
+
 class GraphTransformerModel(nn.Module):
     def __init__(self, out_size, input_size=12, hidden_size=40, num_layers=4, num_heads=3,dropout=0.3, normalization=True, batch_size=512):
         super(GraphTransformerModel, self).__init__()
@@ -22,9 +23,40 @@ class GraphTransformerModel(nn.Module):
         self.linear2 = nn.Linear(hidden_size, hidden_size // 2)
         self.gelu2 = nn.GELU()
         self.linear3 = nn.Linear(hidden_size // 2, out_size)
-        self.class_token = nn.Parameter(torch.zeros(batch_size, hidden_size))
+        self.class_token = nn.Parameter(torch.zeros(1, hidden_size))
 
+    def add_cls_token(self,h,batch_size,data_index_cls_token):
+        keys =  sorted(data_index_cls_token.keys())
+        for key_diz in keys:
+            class_token = self.class_token.expand(1, -1)
+            # Posizione in cui inserire la nuova riga
+            position = int(data_index_cls_token[key_diz]) + int(key_diz)
+            data_index_cls_token[key_diz] = position
+            # Inserire la riga
+            h = torch.cat((h[:position], class_token, h[position:]), dim=0)
+        return h, data_index_cls_token
+    
+    def calcola_numero_di_righe(self,array):
+        # Dizionario per memorizzare il conteggio delle righe per ogni numero
+        dizionario_cls_token_index = {}
+        
+        # Iterare attraverso l'array
+        for numero in array:
+            num=numero.item()
+            if num in dizionario_cls_token_index:
+                dizionario_cls_token_index[num] += 1
+            else:
+                dizionario_cls_token_index[num] = 1
+        current_index = 0
+        keys =  sorted(dizionario_cls_token_index.keys())
+        for key in keys:
+            current_index += int(dizionario_cls_token_index[key])
+            dizionario_cls_token_index[key] = current_index
+        return dizionario_cls_token_index
+    
     def forward(self, data, data_len, batch=None):
+        dizionario_cls_token_index = self.calcola_numero_di_righe(data.batch)
+
         for numBatch in range(data_len):
             # Numero di nodi attuale (prima di aggiungere il nuovo nodo)
             num_nodes = torch.max(data.edge_index).item() + 1  # Numero di nodi presenti, assumi che i nodi siano numerati consecutivamente
@@ -41,22 +73,28 @@ class GraphTransformerModel(nn.Module):
 
         A = to_dense_adj(data.edge_index)[0]                # Convert edge index to adjacency matrix
         
-        class_token = self.class_token.expand(data_len, -1)  # Expand batch size
         
         if self.normalization == True:                      #If normalization is true normalize the data
            h = self.embedding(data.data_norm)
         else:
            h = self.embedding(data.x)
+       
+        h,dizionario_cls_token_index = self.add_cls_token(h,data_len,dizionario_cls_token_index)
         
-        h = torch.cat((h,class_token),dim=0)
         
+        
+        
+
         #Compute GT layers
         for layer in self.layers:
             h = layer(A, h)
 
-        last_row = h[-data_len: , :]
+        rows_index_cls_token = torch.tensor(list(dizionario_cls_token_index.values()))
+        h = h[rows_index_cls_token]
+        
+
         # Linear layers for prediction
-        h = self.linear1(last_row)
+        h = self.linear1(h)
         h = self.gelu1(h)
         h = self.linear2(h)
         h = self.gelu2(h)
@@ -64,7 +102,7 @@ class GraphTransformerModel(nn.Module):
         # h = self.aggregate(h, data.batch)
         h = self.linear3(h)
         return h
-    #     self.aggregate = global_mean_pool
+        # self.aggregate = global_mean_pool
   
     # def forward(self, data, batch=None):
     #     A = to_dense_adj(data.edge_index)[0]                # Convert edge index to adjacency matrix
