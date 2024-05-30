@@ -1,7 +1,7 @@
 #This Custom dataset compute normalization of the node features
 #and add the normalized features in 'data.data_norm'.
 import numpy as np
-from sparticles import EventsDataset
+from sparticles.dataset import EventsDataset
 
 class CustomEventsDataset(EventsDataset):
     def __init__(self, *args, **kwargs):

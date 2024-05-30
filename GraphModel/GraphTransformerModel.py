@@ -70,9 +70,7 @@ class GraphTransformerModel(nn.Module):
             
             # Aggiungi i nuovi bordi a edge_index esistente
             data.edge_index = torch.cat([data.edge_index, new_edges], dim=1)
-
         A = to_dense_adj(data.edge_index)[0]                # Convert edge index to adjacency matrix
-        
         
         if self.normalization == True:                      #If normalization is true normalize the data
            h = self.embedding(data.data_norm)

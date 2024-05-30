@@ -194,7 +194,8 @@ def train_and_evaluate(epochs):
         test_recalls.append(test_recall)
         test_f1_scores.append(test_f1)
         test_auc_scores.append(test_auc)
-
+        print(f'Epoch: {epoch:03d}')
+        
     with open(file_name, 'wb') as file:
         pickle.dump({
             'train_loss_steps': train_loss_steps,
@@ -203,7 +204,7 @@ def train_and_evaluate(epochs):
             'test_acc_steps': test_acc_steps
         }, file)
     
-    print(f'Epoch: {epoch:03d}')
+    
     filepath = f'./checkpoint/checkpoint_epoch_{epoch:03d}_2l (2).pt'    
     torch.save(model.state_dict(), filepath)
     #print(f'Epoch: {epoch:03d}, Test Acc: {test_acc:.4f}, Test Loss: {test_losses[-1]:.4f}, Test Precision: {test_precision:.4f}, Test Recall: {test_recall:.4f}, Test F1: {test_f1:.4f}, Test AUC: {test_auc:.4f}')
