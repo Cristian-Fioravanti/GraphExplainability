@@ -21,7 +21,7 @@ class GTLayer(nn.Module):
 
     def forward(self, A, h):
         h1 = h
-        h, _ = self.MHGAtt(A, h)  # Compute multi-head graph attention
+        h, attention_map = self.MHGAtt(A, h)  # Compute multi-head graph attention
         h = self.layernorm1(h + h1)  # Add node feature and compute layer norm
         h = F.dropout(h, self.dropout) #Compute dropout
 
@@ -33,7 +33,7 @@ class GTLayer(nn.Module):
         h = self.FFN2(h)
         h = h2 + h  # Residual connection
 
-        return self.layernorm2(h)  # Layer norm
+        return self.layernorm2(h), attention_map  # Layer norm
     
     # def forward_withoutMHFAtt(self,h1,h):
     #     with torch.no_grad():

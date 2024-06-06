@@ -25,11 +25,11 @@ from torch_geometric.transforms import BaseTransform
 import numpy as np
 
 from GraphModel.GraphTransformerModel import GraphTransformerModel
-from data.datasetClass import CustomEventsDataset
+from datasetClass import CustomEventsDataset
 import pickle
 
 config=dict(
-      out_size = 2,
+      out_size = 492,
       num_layers=2,
       hidden_size=60,
       input_size=12,
@@ -37,9 +37,9 @@ config=dict(
       learning_rate = 0.0005,
       weight_decay=0.0005,
       batch_size = 512,
-      signal=400000,
-      singletop=200000,
-      ttbar=200000,
+      signal=1000,
+      singletop=100,
+      ttbar=100,
       dropout = 0.3,
       normalization = True
 )
@@ -86,7 +86,8 @@ model = GraphTransformerModel(out_size= config['out_size'],
                               num_heads = config['num_heads'],
                               dropout = config['dropout'],
                               normalization = config['normalization'],
-                              batch_size=config['batch_size']).to(device)
+                              batch_size=config['batch_size'],
+                              return_attention_map=True).to(device)
 
 #define optimizer, criterion and lr schedule
 optimizer = torch.optim.Adam(model.parameters(), lr=config['learning_rate'],weight_decay=config['weight_decay'])
@@ -113,6 +114,7 @@ train_acc_steps = []
 test_loss_steps = []
 test_acc_steps = []
 
+
 def train_and_evaluate(epochs):
     for epoch in range(1, epochs + 1):
         model.train()
@@ -126,7 +128,8 @@ def train_and_evaluate(epochs):
 
         for data in tqdm(train_loader, leave=False):
             data = data.to(device)
-            out = model(data,len(data))
+            out, attention_maps = model(data,len(data))
+            
             loss = criterion(out, data.y)
             loss.backward()
             optimizer.step()
@@ -142,19 +145,19 @@ def train_and_evaluate(epochs):
             # Record loss and accuracy at each step
             train_loss_steps.append(loss.item())
             train_acc_steps.append(accuracy_score(data.y.cpu().numpy(), pred_train.cpu().numpy()))
-
+            
         train_losses.append(epoch_loss / len(train_loader))
         train_acc = accuracy_score(targets_train, predictions_train)
-        train_precision = precision_score(targets_train, predictions_train)
-        train_recall = recall_score(targets_train, predictions_train)
-        train_f1 = f1_score(targets_train, predictions_train)
-        train_auc = roc_auc_score(targets_train, predictions_train)
+        train_precision = precision_score(targets_train, predictions_train, average='macro')
+        train_recall = recall_score(targets_train, predictions_train, average='macro')
+        train_f1 = f1_score(targets_train, predictions_train, average='macro')
+        # train_auc = roc_auc_score(targets_train, predictions_train, average='macro')
 
         train_accuracies.append(train_acc)
         train_precisions.append(train_precision)
         train_recalls.append(train_recall)
         train_f1_scores.append(train_f1)
-        train_auc_scores.append(train_auc)
+        # train_auc_scores.append(train_auc)
 
         #print(f'Epoch: {epoch:03d}, Train Acc: {train_acc:.4f}, Train Loss: {train_losses[-1]:.4f}, Train Precision: {train_precision:.4f}, Train Recall: {train_recall:.4f}, Train F1: {train_f1:.4f}, Train AUC: {train_auc:.4f}')
 
@@ -168,7 +171,8 @@ def train_and_evaluate(epochs):
 
         with torch.no_grad():
             for data in tqdm(test_loader, leave=False):
-                out = model(data.to(device),len(data))
+                out , attention_maps = model(data,len(data))
+            
                 loss = criterion(out, data.y)
                 total_loss += loss.item()
 
@@ -184,16 +188,16 @@ def train_and_evaluate(epochs):
 
         test_losses.append(total_loss / len(test_loader))
         test_acc = accuracy_score(targets_test, predictions_test)
-        test_precision = precision_score(targets_test, predictions_test)
-        test_recall = recall_score(targets_test, predictions_test)
-        test_f1 = f1_score(targets_test, predictions_test)
-        test_auc = roc_auc_score(targets_test, predictions_test)
+        test_precision = precision_score(targets_test, predictions_test, average='macro')
+        test_recall = recall_score(targets_test, predictions_test, average='macro')
+        test_f1 = f1_score(targets_test, predictions_test, average='macro')
+        # test_auc = roc_auc_score(targets_test, predictions_test, average='macro')
 
         test_accuracies.append(test_acc)
         test_precisions.append(test_precision)
         test_recalls.append(test_recall)
         test_f1_scores.append(test_f1)
-        test_auc_scores.append(test_auc)
+       #  test_auc_scores.append(test_auc)
         print(f'Epoch: {epoch:03d}')
         
     with open(file_name, 'wb') as file:

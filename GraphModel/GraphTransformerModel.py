@@ -6,7 +6,7 @@ from torch_geometric.nn import global_mean_pool
 import torch
 
 class GraphTransformerModel(nn.Module):
-    def __init__(self, out_size, input_size=12, hidden_size=40, num_layers=4, num_heads=3,dropout=0.3, normalization=True, batch_size=512):
+    def __init__(self, out_size, input_size=12, hidden_size=40, num_layers=4, num_heads=3,dropout=0.3, normalization=True, batch_size=512, return_attention_map=False):
         super(GraphTransformerModel, self).__init__()
 
         self.normalization = normalization
@@ -24,7 +24,7 @@ class GraphTransformerModel(nn.Module):
         self.gelu2 = nn.GELU()
         self.linear3 = nn.Linear(hidden_size // 2, out_size)
         self.class_token = nn.Parameter(torch.zeros(1, hidden_size))
-
+        self.return_attention_map = return_attention_map
     def add_cls_token(self,h,batch_size,data_index_cls_token):
         keys =  sorted(data_index_cls_token.keys())
         for key_diz in keys:
@@ -56,7 +56,8 @@ class GraphTransformerModel(nn.Module):
     
     def forward(self, data, data_len, batch=None):
         dizionario_cls_token_index = self.calcola_numero_di_righe(data.batch)
-
+        data.edge_index = data.edge_index.to(data.edge_index.device)
+       
         for numBatch in range(data_len):
             # Numero di nodi attuale (prima di aggiungere il nuovo nodo)
             num_nodes = torch.max(data.edge_index).item() + 1  # Numero di nodi presenti, assumi che i nodi siano numerati consecutivamente
@@ -66,12 +67,23 @@ class GraphTransformerModel(nn.Module):
 
             # Crea i nuovi collegamenti per il nuovo nodo con tutti i nodi esistenti
             new_edges = torch.tensor([[new_node] * num_nodes + list(range(num_nodes)),
-                                    list(range(num_nodes)) + [new_node] * num_nodes], device='cuda')
+                                    list(range(num_nodes)) + [new_node] * num_nodes], device= data.edge_index.device)
             
             # Aggiungi i nuovi bordi a edge_index esistente
             data.edge_index = torch.cat([data.edge_index, new_edges], dim=1)
+
         A = to_dense_adj(data.edge_index)[0]                # Convert edge index to adjacency matrix
-        
+
+        # print(data.batch[0:20])
+        for key in dizionario_cls_token_index.keys():
+            cls_token_index = dizionario_cls_token_index[key]
+            num_nodes = cls_token_index if key == 0 else cls_token_index - dizionario_cls_token_index[key - 1]
+            for i in range(cls_token_index - num_nodes, cls_token_index):
+                A[i, cls_token_index] = 1
+                A[cls_token_index, i] = 1
+
+        A =  A.clone().detach().requires_grad_(True).to(data.edge_index.device)
+
         if self.normalization == True:                      #If normalization is true normalize the data
            h = self.embedding(data.data_norm)
         else:
@@ -79,13 +91,12 @@ class GraphTransformerModel(nn.Module):
        
         h,dizionario_cls_token_index = self.add_cls_token(h,data_len,dizionario_cls_token_index)
         
-        
-        
-        
-
         #Compute GT layers
+        attention_maps=[]
         for layer in self.layers:
-            h = layer(A, h)
+            h, attention_map = layer(A, h)  # Aggiungi la restituzione della mappa di attenzione
+            attention_maps.append(attention_map)
+        
 
         rows_index_cls_token = torch.tensor(list(dizionario_cls_token_index.values()))
         h = h[rows_index_cls_token]
@@ -99,7 +110,11 @@ class GraphTransformerModel(nn.Module):
         # Control where you have to aggregate
         # h = self.aggregate(h, data.batch)
         h = self.linear3(h)
-        return h
+        
+        if (self.return_attention_map):
+            return h, attention_maps
+        else:
+            return h
         # self.aggregate = global_mean_pool
   
     # def forward(self, data, batch=None):
