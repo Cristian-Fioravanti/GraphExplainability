@@ -1,47 +1,42 @@
-# Import Libraries
-import pickle
-import wandb
-# from sparticles.datasetstandard import DEFAULT_EVENT_SUBSETS
-# import torch_geometric as pygeo
-# import os
-# import torch.nn as nn
-# import torch.nn.functional as F
-# import torch.optim as optim
-# import torch.nn.init as init
-# import matplotlib.pyplot as plt
+#Import Libraries
+import torch_geometric as pygeo
+import os
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
+import torch.nn.init as init
+import matplotlib.pyplot as plt
 import torch
 import torch.nn.functional as F
 from torch_geometric.utils import to_dense_adj
-# from sparticles import EventsDataset
+from sparticles import EventsDataset
 from sparticles.transforms import MakeHomogeneous
 from sparticles import plot_event_2d
 from torch_geometric.nn import global_mean_pool
 from torch.utils.data import Subset
 from torch_geometric.loader import DataLoader
 from sklearn.model_selection import train_test_split
-# from torch.optim.lr_scheduler import StepLR
+from torch.optim.lr_scheduler import StepLR
 from tqdm import tqdm # for nice bar
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
-# import seaborn as sns
-# from sklearn.metrics import confusion_matrix
-# from torch_geometric.transforms import BaseTransform
-# import numpy as np
+import seaborn as sns
+from sklearn.metrics import confusion_matrix
+from torch_geometric.transforms import BaseTransform
+import numpy as np
+
 from GraphModel.GraphTransformerModel import GraphTransformerModel
 from datasetClass import CustomEventsDataset
-# import pickle
-from utils import get_graph_pca
-from sklearn.metrics import confusion_matrix
-import matplotlib.pyplot as plt
-import seaborn as sns
+import pickle
+
 config=dict(
-      out_size = 6,
+      out_size = 37,
       num_layers=2,
       hidden_size=60,
       input_size=12,
       num_heads= 4,
       learning_rate = 0.0005,
       weight_decay=0.0005,
-      batch_size = 128,
+      batch_size = 512,
       signal=1000,
       singletop=100,
       ttbar=100,
@@ -49,18 +44,18 @@ config=dict(
       normalization = True
 )
 print(config)
+
 dataset = CustomEventsDataset(
     root='E:/Cristian/Code/NeuralNetworkTesi/GraphExplainability/data',
     url='https://cernbox.cern.ch/s/0nh0g7VubM4ndoh/download',
     delete_raw_archive=False,
     add_edge_index=True,
-    transform=MakeHomogeneous(),
-    enable_pca=True
+    transform=MakeHomogeneous()
 )
-# print(dataset.data.pca[0:600])
-#get_graph_pca(dataset.data.pca[600:1200], dataset.data.y)
 
-# split the dataset
+#split the dataset
+
+# generate indices: instead of the actual data we pass in integers
 train_indices, test_indices = train_test_split(
     range(len(dataset)),
     train_size=0.8,
@@ -76,6 +71,8 @@ print(f'Train set contains {len(dataset_train)} graphs, Test set contains {len(d
 # Dataloaders
 train_loader = DataLoader(dataset_train, batch_size=config['batch_size'], shuffle=True)
 test_loader = DataLoader(dataset_test, batch_size=config['batch_size'], shuffle=False)
+
+#Define the model
 
 #set up the device
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -95,7 +92,6 @@ criterion = torch.nn.CrossEntropyLoss()
 #lr_scheduler = StepLR(optimizer, step_size=10, gamma=0.5)
 
 file_name = './training_data.pkl'
-file_confusion = './confusion_data'
 #training and test the model
 train_losses = []
 test_losses = []
@@ -115,8 +111,9 @@ train_acc_steps = []
 test_loss_steps = []
 test_acc_steps = []
 
-def train_and_evaluate(epochs):    
-    for epoch in range(1, epochs):
+
+def train_and_evaluate(epochs):
+    for epoch in range(1, epochs + 1):
         model.train()
         epoch_loss = 0.0
 
@@ -129,7 +126,7 @@ def train_and_evaluate(epochs):
         for data in tqdm(train_loader, leave=False):
             data = data.to(device)
             out = model(data)
-            data.y = data.y.to(device)
+            
             loss = criterion(out, data.y)
             loss.backward()
             optimizer.step()
@@ -141,20 +138,25 @@ def train_and_evaluate(epochs):
             total_train += len(data.y)
             predictions_train.extend(pred_train.tolist())
             targets_train.extend(data.y.tolist())
-            
+
+            # Record loss and accuracy at each step
             train_loss_steps.append(loss.item())
             train_acc_steps.append(accuracy_score(data.y.cpu().numpy(), pred_train.cpu().numpy()))
+            
         train_losses.append(epoch_loss / len(train_loader))
         train_acc = accuracy_score(targets_train, predictions_train)
-        train_precision = precision_score(targets_train, predictions_train, average='macro', zero_division=0)
-        train_recall = recall_score(targets_train, predictions_train, average='macro', zero_division=0)
-        train_f1 = f1_score(targets_train, predictions_train, average='macro', zero_division=0)
+        train_precision = precision_score(targets_train, predictions_train, average='macro')
+        train_recall = recall_score(targets_train, predictions_train, average='macro')
+        train_f1 = f1_score(targets_train, predictions_train, average='macro')
         # train_auc = roc_auc_score(targets_train, predictions_train, average='macro')
 
         train_accuracies.append(train_acc)
         train_precisions.append(train_precision)
         train_recalls.append(train_recall)
         train_f1_scores.append(train_f1)
+        # train_auc_scores.append(train_auc)
+
+        #print(f'Epoch: {epoch:03d}, Train Acc: {train_acc:.4f}, Train Loss: {train_losses[-1]:.4f}, Train Precision: {train_precision:.4f}, Train Recall: {train_recall:.4f}, Train F1: {train_f1:.4f}, Train AUC: {train_auc:.4f}')
 
         # Testing loop
         model.eval()
@@ -164,15 +166,10 @@ def train_and_evaluate(epochs):
         predictions_test = []
         targets_test = []
 
-        correctly_classified_signal = 0
-        correctly_classified_background = 0
-        misclassified_signal_as_other_signal = 0
-        misclassified_signal_as_background = 0
-        misclassified_background_as_signal = 0
         with torch.no_grad():
             for data in tqdm(test_loader, leave=False):
-                out = model(data)
-                data.y = data.y.to(device)
+                out  = model(data)
+            
                 loss = criterion(out, data.y)
                 total_loss += loss.item()
 
@@ -181,47 +178,25 @@ def train_and_evaluate(epochs):
                 total_test += len(data.y)
                 predictions_test.extend(pred_test.tolist())
                 targets_test.extend(data.y.tolist())
-                
-                 # Check if prediction matches the true label
-                for index, pred in enumerate(pred_test):
-                    if pred ==  data.y[index]:
-                        if  data.y[index] >= 1:
-                            correctly_classified_signal+=1
-                        else:
-                            correctly_classified_background+=1
-                    else:
-                        if data.y[index] >= 1:
-                            if pred >= 1: misclassified_signal_as_other_signal+=1
-                            else: misclassified_signal_as_background+=1
-                        else:
-                            misclassified_background_as_signal+=1
+
                 # Record loss and accuracy at each step
                 test_loss_steps.append(loss.item())
                 test_acc_steps.append(accuracy_score(data.y.cpu().numpy(), pred_test.cpu().numpy()))
 
         test_losses.append(total_loss / len(test_loader))
         test_acc = accuracy_score(targets_test, predictions_test)
-        test_precision = precision_score(targets_test, predictions_test, average='macro', zero_division=0)
-        test_recall = recall_score(targets_test, predictions_test, average='macro', zero_division=0)
-        test_f1 = f1_score(targets_test, predictions_test, average='macro', zero_division=0)
+        test_precision = precision_score(targets_test, predictions_test, average='macro')
+        test_recall = recall_score(targets_test, predictions_test, average='macro')
+        test_f1 = f1_score(targets_test, predictions_test, average='macro')
         # test_auc = roc_auc_score(targets_test, predictions_test, average='macro')
 
         test_accuracies.append(test_acc)
         test_precisions.append(test_precision)
         test_recalls.append(test_recall)
         test_f1_scores.append(test_f1)
-     #  test_auc_scores.append(test_auc)
+       #  test_auc_scores.append(test_auc)
         print(f'Epoch: {epoch:03d}')
-    
-    with open(file_confusion+f'_{config["out_size"]}.pkl', 'wb') as file:
-        pickle.dump({
-            'misclassified_signal_as_other_signal': misclassified_signal_as_other_signal,
-            'correctly_classified_signal': correctly_classified_signal,
-            'correctly_classified_background': correctly_classified_background,
-            'misclassified_signal_as_background': misclassified_signal_as_background,
-            'misclassified_background_as_signal': misclassified_background_as_signal
-        }, file)
-
+        
     with open(file_name, 'wb') as file:
         pickle.dump({
             'train_loss_steps': train_loss_steps,
@@ -235,15 +210,5 @@ def train_and_evaluate(epochs):
     torch.save(model.state_dict(), filepath)
     #print(f'Epoch: {epoch:03d}, Test Acc: {test_acc:.4f}, Test Loss: {test_losses[-1]:.4f}, Test Precision: {test_precision:.4f}, Test Recall: {test_recall:.4f}, Test F1: {test_f1:.4f}, Test AUC: {test_auc:.4f}')
 
-def get_confusion_matrix(targets,predictions):
-            # Calculate confusion matrix
-        conf_matrix = confusion_matrix(targets, predictions)
 
-        # Plot confusion matrix with correct labels
-        plt.figure(figsize=(8, 6))
-        sns.heatmap(conf_matrix, annot=True, fmt="d", cmap="Blues", xticklabels=['background', 'signal'], yticklabels=['background', 'signal'])
-        plt.xlabel('Predicted Label')
-        plt.ylabel('True Label')
-        plt.title('Confusion Matrix')
-        plt.show()
 train_and_evaluate(epochs=10)

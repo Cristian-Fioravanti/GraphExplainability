@@ -20,8 +20,13 @@ class GTLayer(nn.Module):
         self.gelu = nn.GELU()
 
     def forward(self, A, h):
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+        h = h.to(device)
+        A = A.to(device)
         h1 = h
-        h, attention_map = self.MHGAtt(A, h)  # Compute multi-head graph attention
+        
+        h , _ = self.MHGAtt(A, h)  # Compute multi-head graph attention
         h = self.layernorm1(h + h1)  # Add node feature and compute layer norm
         h = F.dropout(h, self.dropout) #Compute dropout
 
@@ -33,7 +38,7 @@ class GTLayer(nn.Module):
         h = self.FFN2(h)
         h = h2 + h  # Residual connection
 
-        return self.layernorm2(h), attention_map  # Layer norm
+        return self.layernorm2(h)  # Layer norm
     
     # def forward_withoutMHFAtt(self,h1,h):
     #     with torch.no_grad():

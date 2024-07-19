@@ -25,7 +25,11 @@ class GraphTransformerModel(nn.Module):
         self.linear3 = nn.Linear(hidden_size // 2, out_size)
 
     def forward(self, data, batch=None):
-        A = to_dense_adj(data.edge_index)[0]                # Convert edge index to adjacency matrix
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        
+        A = to_dense_adj(data.edge_index)[0]      
+        data.data_norm = data.data_norm.to(device)         # Convert edge index to adjacency matrix
+        data.x = data.x.to(device)
         if self.normalization == True:                      #If normalization is true normalize the data
            h = self.embedding(data.data_norm)
         else:
@@ -41,6 +45,7 @@ class GraphTransformerModel(nn.Module):
         h = self.linear2(h)
         h = self.gelu2(h)
         # Control where you have to aggregate
+        data.batch = data.batch.to(device)
         h = self.aggregate(h, data.batch)
         h = self.linear3(h)
 
@@ -75,7 +80,9 @@ class GraphTransformerModel(nn.Module):
             return h
         
     def forward_with_no_grad(self, data, batch=None):
-        A = to_dense_adj(data.edge_index)[0]                # Convert edge index to adjacency matrix
+        
+        A = to_dense_adj(data.edge_index)[0]        # Convert edge index to adjacency matrix
+        
         if self.normalization == True:                      #If normalization is true normalize the data
            h = self.embedding(data.data_norm)
         else:

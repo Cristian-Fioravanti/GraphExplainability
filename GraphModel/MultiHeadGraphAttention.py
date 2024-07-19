@@ -19,6 +19,8 @@ class MultiHeadGraphAttention(nn.Module):
         self.out_proj = nn.Linear(hidden_size, hidden_size)
 
     def forward(self, A, h): #A:adiacency matrix -- h: features of graphs
+        # print('----------------------------------------------------')
+        # print(h)
         N = h.size(0)  # Number of nodes
 
         # Compute query keys and value as projection of the input
@@ -33,7 +35,7 @@ class MultiHeadGraphAttention(nn.Module):
 
      
         #compute attention scores
-        scores = torch.matmul(q, k.transpose(1, 2)) * A.unsqueeze(0) / (N ** (-0.5)) #(num_heads, N, N) attention score between a pair of nodes for each attention head
+        scores = torch.matmul(q, k.transpose(1, 2)) * A.unsqueeze(0) / (self.head_size ** (0.5)) #(num_heads, N, N) attention score between a pair of nodes for each attention head
         scores = F.softmax(scores, dim=2)
 
         out = torch.matmul(scores, v) #(num_heads, N, head_size)

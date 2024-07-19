@@ -1,50 +1,55 @@
-#Un evento e' un grafo formato da 6 o 7 nodi e ogni nodo ha n feature (con n che arriva a 12 dopo la manipolazione fatta da lei)
+import pickle
+import os
 import matplotlib.pyplot as plt
-import torch
-from sparticles.transforms import MakeHomogeneous
-from torch.utils.data import Subset
-from torch_geometric.loader import DataLoader
-from sklearn.model_selection import train_test_split
-from torch.optim.lr_scheduler import StepLR
-import seaborn as sns
-from sklearn.metrics import confusion_matrix
-from torch_geometric.transforms import BaseTransform
-import numpy as np
-import plotly.graph_objects as go
-from GraphModel.GraphTransformerModel import GraphTransformerModel
-from data.datasetClass import CustomEventsDataset
-from utils import get_attention_scores
-from plotly.subplots import make_subplots
-config=dict(
-      out_size = 2,
-      num_layers=2,
-      hidden_size=60,
-      input_size=12,
-      num_heads= 4,
-      learning_rate = 0.0005,
-      weight_decay=0.0005,
-      batch_size = 1,
-      dropout = 0.3,
-      signal=400000,
-      singletop=200000,
-      ttbar=200000,
-      normalization = True
-)
-local_path = './checkpoint/checkpoint_epoch_10.pt'
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-# Define the model
-model = GraphTransformerModel(out_size=config['out_size'],
-                              input_size=config['input_size'],
-                              hidden_size=config['hidden_size'],
-                              num_layers=config['num_layers'],
-                              num_heads=config['num_heads'],
-                              dropout=config['dropout'],
-                              normalization=config['normalization']).to(device)
+from matplotlib.ticker import MaxNLocator
+def load_data(file_confusion, start_size=2):
+    data = []
+    config_size = start_size
+    while True:
+        file_name = f'{file_confusion}_{config_size}.pkl'
+        if not os.path.exists(file_name):
+            break
+        with open(file_name, 'rb') as file:
+            data.append(pickle.load(file))
+        config_size += 1
+    return data
 
-checkpoint_path = './checkpoint/'
+def plot_data(data):
+    misclassified_signal_as_other_signal  = [item['misclassified_signal_as_other_signal'] for item in data]
+    correctly_classified_signal = [item['correctly_classified_signal'] for item in data]
+    correctly_classified_background = [item['correctly_classified_background'] for item in data]
+    misclassified_signal_as_background = [item['misclassified_signal_as_background'] for item in data]
+    misclassified_background_as_signal = [item['misclassified_background_as_signal'] for item in data]
+    print("Number of correctly classified signal:", correctly_classified_signal)
+    print("Number of correctly classified background:", correctly_classified_background)
+    print("Number of misclassified signal as background:", misclassified_signal_as_background)
+    print("Number of misclassified background as signal:", misclassified_background_as_signal)
+    print("Number of misclassified signal as other signal:", misclassified_signal_as_other_signal)
+    sizes = range(2, 2 + len(data))
+    
+    plt.figure(figsize=(10, 6))
+    
+    
+    plt.plot(sizes, correctly_classified_signal, label='Correctly Classified Signal')
+    plt.plot(sizes, correctly_classified_background, label='Correctly Classified Background')
+    plt.plot(sizes, misclassified_signal_as_background, label='Misclassified Signal as Background')
+    plt.plot(sizes, misclassified_background_as_signal, label='Misclassified Background as Signal')
+    plt.plot(sizes, misclassified_signal_as_other_signal, label='Misclassified Signal as Other Signal')
 
-# Load the trained weights onto the model
-checkpoint = torch.load(checkpoint_path+"checkpoint_epoch_001_2l.pt", map_location=device)
+    plt.xlabel('Configuration Size')
+    plt.ylabel('Count')
+    plt.title('Classification Results by Configuration Size')
+    plt.legend()
+    plt.grid(True)
+    # Imposta l'asse x per mostrare solo valori interi
+    ax = plt.gca()
+    ax.xaxis.set_major_locator(MaxNLocator(integer=True))    
+    plt.show()
 
-model.load_state_dict(checkpoint)
-print(model)
+if __name__ == "__main__":
+    file_confusion = './confusion_data'  # sostituisci con il percorso corretto del tuo file
+    data = load_data(file_confusion)
+    if data:
+        plot_data(data)
+    else:
+        print("Nessun file trovato.")
