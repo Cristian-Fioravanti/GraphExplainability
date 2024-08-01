@@ -18,27 +18,26 @@ class MultiHeadGraphAttention(nn.Module):
         self.v_proj = nn.Linear(hidden_size, hidden_size)
         self.out_proj = nn.Linear(hidden_size, hidden_size)
 
-    def forward(self, A, h): #A:adiacency matrix -- h: features of graphs
-        # print('----------------------------------------------------')
-        # print(h)
+    def forward(self, A, h):  # A: adjacency matrix -- h: features of graphs
         N = h.size(0)  # Number of nodes
 
-        # Compute query keys and value as projection of the input
-        q = self.q_proj(h)
-        k = self.k_proj(h)
-        v = self.v_proj(h)
+        # Compute query, keys and values as projection of the input
+        q = self.q_proj(h)  # Shape: (N, num_heads * head_size)
+        k = self.k_proj(h)  # Shape: (N, num_heads * head_size)
+        v = self.v_proj(h)  # Shape: (N, num_heads * head_size)
 
-        #resize with dimension (num_heads, N, head_size)
-        q = q.view(N, self.num_heads, self.head_size).transpose(0, 1)  # (num_heads, N, head_size)
-        k = k.view(N, self.num_heads, self.head_size).transpose(0, 1)  # (num_heads, N, head_size)
-        v = v.view(N, self.num_heads, self.head_size).transpose(0, 1)  # (num_heads, N, head_size)
+        # Resize with dimension (N, num_heads, head_size)
+        q = q.view(N, self.num_heads, self.head_size)  # (N, num_heads, head_size)
+        k = k.view(N, self.num_heads, self.head_size)  # (N, num_heads, head_size)
+        v = v.view(N, self.num_heads, self.head_size)  # (N, num_heads, head_size)
 
-     
-        #compute attention scores
-        scores = torch.matmul(q, k.transpose(1, 2)) * A.unsqueeze(0) / (self.head_size ** (0.5)) #(num_heads, N, N) attention score between a pair of nodes for each attention head
-        scores = F.softmax(scores, dim=2)
+        # Compute attention scores
+        scores = torch.matmul(q, k.transpose(1, 2)) / (self.head_size ** 0.5)  # (N, num_heads, N)
+        
+        # Softmax on dim=0
+        scores = F.softmax(scores, dim=0)  # Apply softmax on the first dimension
 
-        out = torch.matmul(scores, v) #(num_heads, N, head_size)
-        out = out.transpose(0, 1).contiguous().view(N, self.hidden_size)  # (N, hidden_size)
+        out = torch.matmul(scores, v)  # (N, num_heads, head_size)
+        out = out.view(N, self.hidden_size)  # (N, hidden_size)
 
         return out, scores
