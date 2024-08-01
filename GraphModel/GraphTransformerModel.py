@@ -9,7 +9,7 @@ class GraphTransformerModel(nn.Module):
         super(GraphTransformerModel, self).__init__()
 
         self.normalization = normalization
-
+        self.hidden_size = hidden_size
         #embedding the input in hidden dim
         self.embedding = nn.Linear(input_size, hidden_size)
 
@@ -24,21 +24,25 @@ class GraphTransformerModel(nn.Module):
         self.aggregate = global_mean_pool
         self.linear3 = nn.Linear(hidden_size // 2, out_size)
 
-    def forward(self, data, batch=None):
+    def forward(self, data, batch_size, x_shape, batch=None):
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        
-        A = to_dense_adj(data.edge_index)[0]      
+        data.x = data.x.reshape(batch_size, 7, 12)
+        data.data_norm = data.data_norm.reshape(batch_size, 7, 12)
+            
         data.data_norm = data.data_norm.to(device)         # Convert edge index to adjacency matrix
         data.x = data.x.to(device)
+        
         if self.normalization == True:                      #If normalization is true normalize the data
            h = self.embedding(data.data_norm)
         else:
            h = self.embedding(data.x)
-
+        
         #Compute GT layers
         for layer in self.layers:
-            h = layer(A, h)
-
+            h = layer( h)
+        data.x = data.x.reshape(x_shape[0], x_shape[1])
+        data.data_norm = data.data_norm.reshape(x_shape[0], x_shape[1])
+        h = h.reshape(x_shape[0], self.hidden_size)
         # Linear layers for prediction
         h = self.linear1(h)
         h = self.gelu1(h)

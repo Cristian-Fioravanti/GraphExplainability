@@ -335,10 +335,9 @@ def train_and_evaluate(epochs):
         targets_train = []
 
         for data in tqdm(train_loader, leave=False):
-            data.x = data.x.reshape(config['batch_size'], 7, 12)
-            data.data_norm = data.data_norm.reshape(config['batch_size'], 7, 12)
+           
             data = data.to(device)
-            out = model(data)
+            out = model(data,int(data.x.shape[0] / 7),data.x.shape)
             data.y = data.y.to(device)
         
             loss = criterion(out, data.y)
@@ -383,7 +382,7 @@ def train_and_evaluate(epochs):
         # misclassified_background_as_signal = 0
         with torch.no_grad():
             for data in tqdm(test_loader, leave=False):
-                out = model(data)
+                out = model(data,int(data.x.shape[0] / 7),data.x.shape)
                 data.y = data.y.to(device)
                 loss = criterion(out, data.y)
                 total_loss += loss.item()
@@ -793,9 +792,17 @@ class EventsDataset(InMemoryDataset):
             
             x = x[x[:,0]>0]
             if x.shape[0] == 6:
-                # Aggiunge una riga di padding con tutti 0
+                # Estrai la prima riga
+                first_row = x[0].unsqueeze(0)
+                second_row = x[1].unsqueeze(0)
+                # Estrai le righe successive
+                remaining_rows = x[2:]
+                
+                # Crea una riga di padding con tutti 0
                 padding_row = torch.zeros((1, x.shape[1]))
-                x = torch.cat((x, padding_row), dim=0)
+                
+                # Concatena la prima riga, la riga di padding e le righe successive
+                x = torch.cat((first_row,second_row, padding_row, remaining_rows), dim=0)
 
             edge_index = None
             if self.add_edge_index:
