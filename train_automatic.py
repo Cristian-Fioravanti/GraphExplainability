@@ -335,6 +335,8 @@ def train_and_evaluate(epochs):
         targets_train = []
 
         for data in tqdm(train_loader, leave=False):
+            data.x = data.x.reshape(config['batch_size'], 7, 12)
+            data.data_norm = data.data_norm.reshape(config['batch_size'], 7, 12)
             data = data.to(device)
             out = model(data)
             data.y = data.y.to(device)
@@ -790,6 +792,10 @@ class EventsDataset(InMemoryDataset):
             x = torch.from_numpy(graph_features).reshape(7, -1)
             
             x = x[x[:,0]>0]
+            if x.shape[0] == 6:
+                # Aggiunge una riga di padding con tutti 0
+                padding_row = torch.zeros((1, x.shape[1]))
+                x = torch.cat((x, padding_row), dim=0)
 
             edge_index = None
             if self.add_edge_index:
