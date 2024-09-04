@@ -1,6 +1,8 @@
 # Import Libraries
 import pickle
 import wandb
+import random
+
 # from sparticles.datasetstandard import DEFAULT_EVENT_SUBSETS
 # import torch_geometric as pygeo
 # import os
@@ -34,14 +36,14 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import shutil
 config=dict(
-      out_size = 8,
+      out_size = 2,
       num_layers=2,
       hidden_size=60,
       input_size=12,
-      num_heads= 4,
+      num_heads= 30,
       learning_rate = 0.0005,
       weight_decay=0.0005,
-      batch_size = 128,
+      batch_size = 512,
       signal=1000,
       singletop=100,
       ttbar=100,
@@ -94,7 +96,7 @@ DEFAULT_EVENT_SUBSETS = {
   "1000_200": 933,
   "1000_250": 932,
   "1000_300": 959,
-#   "1000_350": 994,
+  "1000_350": 994,
   "1000_400": 1003,
   "1000_450": 4901,
   "1000_500": 5050,
@@ -155,7 +157,7 @@ DEFAULT_EVENT_SUBSETS = {
   "350_200": 1377,
   "350_25": 2233,
   "350_50": 2282,
-#   "350_75": 2227,
+  "350_75": 2227,
   "375_0": 1780,
   "375_50": 1905,
   "400_0": 1995,
@@ -167,7 +169,7 @@ DEFAULT_EVENT_SUBSETS = {
   "400_50": 1356,
   "425_0": 1367,
   "450_0": 1141,
-#   "450_100": 1172,
+  "450_100": 1172,
   "450_150": 1060,
   "450_200": 1003,
   "450_250": 1100,
@@ -179,10 +181,10 @@ DEFAULT_EVENT_SUBSETS = {
   "500_200": 1136,
   "500_250": 974,
   "500_300": 854,
-#   "500_350": 711,
+  "500_350": 711,
   "500_50": 1216,
-#   "535_400": 409,
-#   "550_0": 915,
+  "535_400": 409,
+  "550_0": 915,
   "550_100": 982,
   "550_150": 905,
   "550_200": 887,
@@ -254,7 +256,7 @@ DEFAULT_EVENT_SUBSETS = {
   "900_50": 988
 }
 DEFAULT_EVENT_SUBSETS_COPY = DEFAULT_EVENT_SUBSETS.copy()
-EVENT_SELECTED = {'1000_0': 935, '535_400': 409, '450_100': 1172, '550_0': 915, '1000_350': 994, '350_75': 2227, '500_350': 711, '800_150': 1017, '700_50': 1027, '500_150': 1223, '650_150': 934}
+EVENT_SELECTED = {'1000_0': 935 }#{ '535_400': 409, '450_100': 1172, '550_0': 915, '1000_350': 994, '350_75': 2227, '500_350': 711, '800_150': 1017, '700_50': 1027, '500_150': 1223, '650_150': 934}
 EVENT_ACCURACY = {}
 EVENT_LABELS = {  #'ttbar':0, "singletop": 0
 }
@@ -339,8 +341,9 @@ def train_and_evaluate(epochs):
                 targets_train = []
 
                 for data in tqdm(train_loader, leave=False):
+                
                     data = data.to(device)
-                    out = model(data)
+                    out = model(data,int(data.x.shape[0] / 7),data.x.shape)
                     data.y = data.y.to(device)
                 
                     loss = criterion(out, data.y)
@@ -385,7 +388,7 @@ def train_and_evaluate(epochs):
                 # misclassified_background_as_signal = 0
                 with torch.no_grad():
                     for data in tqdm(test_loader, leave=False):
-                        out = model(data)
+                        out = model(data,int(data.x.shape[0] / 7),data.x.shape)
                         data.y = data.y.to(device)
                         loss = criterion(out, data.y)
                         total_loss += loss.item()
@@ -395,21 +398,7 @@ def train_and_evaluate(epochs):
                         total_test += len(data.y)
                         predictions_test.extend(pred_test.tolist())
                         targets_test.extend(data.y.tolist())
-                        
-                        # Check if prediction matches the true label
-                        # for index, pred in enumerate(pred_test):
-                        #     if pred ==  data.y[index]:
-                        #         if  data.y[index] >= 1:
-                        #             correctly_classified_signal+=1
-                        #         else:
-                        #             correctly_classified_background+=1
-                        #     else:
-                        #         if data.y[index] >= 1:
-                        #             if pred >= 1: misclassified_signal_as_other_signal+=1
-                        #             else: misclassified_signal_as_background+=1
-                        #         else:
-                        #             misclassified_background_as_signal+=1
-                        # Record loss and accuracy at each step
+
                         test_loss_steps.append(loss.item())
                         test_acc_steps.append(accuracy_score(data.y.cpu().numpy(), pred_test.cpu().numpy()))
 
@@ -418,7 +407,6 @@ def train_and_evaluate(epochs):
                 test_precision = precision_score(targets_test, predictions_test, average='macro', zero_division=0)
                 test_recall = recall_score(targets_test, predictions_test, average='macro', zero_division=0)
                 test_f1 = f1_score(targets_test, predictions_test, average='macro', zero_division=0)
-                # test_auc = roc_auc_score(targets_test, predictions_test, average='macro')
 
                 test_accuracies.append(test_acc)
                 test_precisions.append(test_precision)
@@ -764,7 +752,7 @@ class EventsDataset(InMemoryDataset):
         graphs.drop(columns=list(set(graphs.columns) - set(USEFUL_COLS)), inplace=True)
         graphs['nan'] = torch.nan
         graphs = graphs[USEFUL_COLS].reset_index()
-        print(EVENT_SUBSETS)
+        # print(EVENT_SUBSETS)
         EVENT_SUBSETS[event_type] += graphs.shape[0]
         # print('EVENT_SUBSETS: ' ,EVENT_SUBSETS[event_type])
         if (event_type not in 'ttbar' and event_type  not in  'singletop'):
@@ -774,8 +762,8 @@ class EventsDataset(InMemoryDataset):
             else:
                 graphs = graphs.sample(n=graphs.shape[0], random_state=RANDOM_STATE)
                 conta_dati_per_classe += graphs.shape[0]
-        else:
-            graphs = graphs.sample(n=num_dati_per_classe, random_state=RANDOM_STATE) # da fixare
+        # else:
+        #     graphs = graphs.sample(n=num_dati_per_classe, random_state=RANDOM_STATE) # da fixare
         # if (event_type not in 'ttbar' and event_type  not in  'singletop'):
             
         #     graphs = graphs.sample(n=graphs.shape[0], random_state=RANDOM_STATE)
@@ -803,6 +791,18 @@ class EventsDataset(InMemoryDataset):
             x = torch.from_numpy(graph_features).reshape(7, -1)
             
             x = x[x[:,0]>0]
+            if x.shape[0] == 6:
+                # Estrai la prima riga
+                first_row = x[0].unsqueeze(0)
+                second_row = x[1].unsqueeze(0)
+                # Estrai le righe successive
+                remaining_rows = x[2:]
+                
+                # Crea una riga di padding con tutti 0
+                padding_row = torch.zeros((1, x.shape[1]))
+                
+                # Concatena la prima riga, la riga di padding e le righe successive
+                x = torch.cat((first_row,second_row, padding_row, remaining_rows), dim=0)
 
             edge_index = None
             if self.add_edge_index:
@@ -816,24 +816,19 @@ class EventsDataset(InMemoryDataset):
                 edge_index=edge_index,
             ))
             
-            # data_list.append(Data(
-            #     x=x*1.1,
-            #     event_id=f'{event_type}_{event_id}',
-            #     y=label,
-            #     edge_index=edge_index,
-            # ))
-            # data_list.append(Data(
-            #     x=x+ 0.01 * np.random.randn(*x.shape),
-            #     event_id=f'{event_type}_{event_id}',
-            #     y=label,
-            #     edge_index=edge_index,
-            # ))
-            # data_list.append(Data(
-            #     x=x+0.1,
-            #     event_id=f'{event_type}_{event_id}',
-            #     y=label,
-            #     edge_index=edge_index,
-            # ))
+            data_list.append(Data(
+                x=x*1.1,
+                event_id=f'{event_type}_{event_id}',
+                y=label,
+                edge_index=edge_index,
+            ))
+            for i in range(0,5):
+                data_list.append(Data(
+                    x=x+random.uniform(0.1, 0.5),
+                    event_id=f'{event_type}_{event_id}',
+                    y=label,
+                    edge_index=edge_index,
+                ))
             
         return data_list,conta_dati_per_classe, EVENT_SUBSETS
     
