@@ -20,17 +20,17 @@ class MultiHeadGraphAttention(nn.Module):
         self.layer_norm = nn.LayerNorm(hidden_size)
     def forward(self, h):  # A: adjacency matrix -- h: features of graphs
         batch_size = h.size(0)  # Number of nodes
-
+        
         # Compute query, keys and values as projection of the input
         q = self.q_proj(h)  # Shape: (N, num_heads * head_size)
         k = self.k_proj(h)  # Shape: (N, num_heads * head_size)
         v = self.v_proj(h)  # Shape: (N, num_heads * head_size)
-
+        
         # Divisione in num_heads
         q = q.view(batch_size, -1, self.num_heads, self.head_size).transpose(1, 2)  # (batch_size, num_heads, seq_length, d_k)
         k = k.view(batch_size, -1, self.num_heads, self.head_size).transpose(1, 2)  # (batch_size, num_heads, seq_length, d_k)
         v = v.view(batch_size, -1, self.num_heads, self.head_size).transpose(1, 2)  # (batch_size, num_heads, seq_length, d_k)
-
+        
         # Calcolo dell'attenzione
         scores = self.calculate_attention(q, k, v)
 
@@ -48,7 +48,7 @@ class MultiHeadGraphAttention(nn.Module):
 
     def calculate_attention(self, q, k, v):
         d_k = q.size(-1)
-        scores = torch.matmul(q, k.transpose(-2, -1)) / torch.sqrt(torch.tensor(d_k, dtype=torch.float32))
+        scores = torch.matmul(q, k.transpose(-2, -1)) / torch.sqrt(torch.tensor(self.head_size, dtype=torch.float32))
         attn = F.softmax(scores, dim=-1)
         output = torch.matmul(attn, v)
         return output
