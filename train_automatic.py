@@ -37,7 +37,7 @@ import seaborn as sns
 import shutil
 config=dict(
       out_size = 6,
-      num_layers=2,
+      num_layers=9,
       hidden_size=60,
       input_size=12,
       num_heads= 30,
@@ -95,7 +95,7 @@ DEFAULT_EVENT_SUBSETS = {
   "1000_200": 933,
   "1000_250": 932,
   "1000_300": 959,
-#   "1000_350": 994,
+  "1000_350": 994,
   "1000_400": 1003,
   "1000_450": 4901,
   "1000_500": 5050,
@@ -115,7 +115,7 @@ DEFAULT_EVENT_SUBSETS = {
   "150_0": 13022,
   "152_22": 12538,
   "162_12": 11297,
-  "165_35": 9321,
+#   "165_35": 9321,
   "175_0": 9543,
   "175_25": 8800,
   "177_47": 6892,
@@ -156,7 +156,7 @@ DEFAULT_EVENT_SUBSETS = {
   "350_200": 1377,
   "350_25": 2233,
   "350_50": 2282,
-#   "350_75": 2227,
+  "350_75": 2227,
   "375_0": 1780,
   "375_50": 1905,
   "400_0": 1995,
@@ -168,7 +168,7 @@ DEFAULT_EVENT_SUBSETS = {
   "400_50": 1356,
   "425_0": 1367,
   "450_0": 1141,
-#   "450_100": 1172,
+  "450_100": 1172,
   "450_150": 1060,
   "450_200": 1003,
   "450_250": 1100,
@@ -180,23 +180,23 @@ DEFAULT_EVENT_SUBSETS = {
   "500_200": 1136,
   "500_250": 974,
   "500_300": 854,
-#   "500_350": 711,
+  "500_350": 711,
   "500_50": 1216,
-#   "535_400": 409,
-#   "550_0": 915,
+  "535_400": 409,
+  "550_0": 915,
   "550_100": 982,
   "550_150": 905,
   "550_200": 887,
   "550_250": 812,
   "550_300": 3897,
   "550_50": 931,
-  "585_450": 2067,
+#   "585_450": 2067,
   "600_0": 978,
   "600_100": 915,
   "600_150": 968,
   "600_200": 965,
   "600_250": 960,
-  "600_300": 857,
+#   "600_300": 857,
   "600_350": 801,
   "600_400": 664,
   "600_450": 2494,
@@ -247,7 +247,7 @@ DEFAULT_EVENT_SUBSETS = {
   "900_150": 1018,
   "900_200": 988,
   "900_250": 1007,
-  "900_300": 1039,
+#   "900_300": 1039,
   "900_350": 1005,
   "900_400": 979,
   "900_450": 4943,
@@ -255,7 +255,7 @@ DEFAULT_EVENT_SUBSETS = {
   "900_50": 988
 }
 DEFAULT_EVENT_SUBSETS_COPY = DEFAULT_EVENT_SUBSETS.copy()
-EVENT_SELECTED = {'1000_0': 935, '535_400': 409, '450_100': 1172, '550_0': 915, '1000_350': 994, 'ttbar':6093298}#  , '350_75': 2227, '500_350': 711, '800_150': 1017, '700_50': 1027, '500_150': 1223, '650_150': 934}
+EVENT_SELECTED = {'1000_0': 935, '585_450': 2067, '600_300': 857, '165_35': 9321, '900_300': 1039, 'ttbar':6093298}# { '800_450': 4753, '550_150': 905, '325_0': 2339}
 EVENT_ACCURACY = {}
 EVENT_LABELS = {  #'ttbar':0, "singletop": 0
 }
@@ -271,19 +271,19 @@ def train_and_evaluate(epochs):
     print(f"Inizializzato EVENT_LABELS: {EVENT_LABELS}")
     # Lista delle directory da rimuovere
     data_dir = "E:\\Cristian\\Code\\NeuralNetworkTesi\\GraphExplainability\\data\\"
-    # directories_to_remove = [data_dir+"processed"]#, data_dir+"\\raw\\signal", data_dir+"\\raw\\singletop", data_dir+"\\raw\\ttbar"]
+    directories_to_remove = [data_dir+"processed"]#, data_dir+"\\raw\\signal", data_dir+"\\raw\\singletop", data_dir+"\\raw\\ttbar"]
 
-    # for directory in directories_to_remove:
-    #     if os.path.exists(directory):
-    #         if os.path.isdir(directory):
-    #             shutil.rmtree(directory)  # Usa rmtree se la directory può contenere file
-    #             print(f"Directory '{directory}' rimossa.")
-    #         else:
-    #             print(f"'{directory}' non è una directory.")
-    #     else:
-    #         print(f"Directory '{directory}' non esiste.")
+    for directory in directories_to_remove:
+        if os.path.exists(directory):
+            if os.path.isdir(directory):
+                shutil.rmtree(directory)  # Usa rmtree se la directory può contenere file
+                print(f"Directory '{directory}' rimossa.")
+            else:
+                print(f"'{directory}' non è una directory.")
+        else:
+            print(f"Directory '{directory}' non esiste.")
 
-    # print(f"Rimosse directory")
+    print(f"Rimosse directory")
     num_dati_per_classe = min(EVENT_SUBSETS.values())
 
     #define the model
@@ -408,7 +408,7 @@ def train_and_evaluate(epochs):
         test_f1_scores.append(test_f1)
 
         print(f'Epoch: {epoch:03d} ')
-        if epoch==100 or  epoch==50:
+        if epoch==100 or  epoch==50 or  epoch==250 or  epoch==300 or  epoch==350:
             filepath = f'./checkpoint/checkpoint_epoch_{epoch:03d}_final_test.pt'    
             torch.save(model.state_dict(), filepath)
             print(test_acc_steps[-1])
@@ -768,7 +768,7 @@ class EventsDataset(InMemoryDataset):
             
             graphs = graphs.sample(n=graphs.shape[0], random_state=RANDOM_STATE)
         else:
-            graphs = graphs.sample(n=120, random_state=RANDOM_STATE)
+            graphs = graphs.sample(n=857, random_state=RANDOM_STATE)
         
         for row in tqdm(graphs.values, total=graphs.shape[0], desc=f'Processing events in {h5_file}'):
             event_id = int(row[0])
@@ -913,4 +913,4 @@ class CustomEventsDataset(EventsDataset):
 #         plt.title('Confusion Matrix')
 #         plt.show()
 
-train_and_evaluate(epochs=200)
+train_and_evaluate(epochs=400)
