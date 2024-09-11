@@ -164,7 +164,7 @@ datajson = {
   "900_50": 0.28091603053435116
 }
 
-file_name = 'training_data_6_0.6_25-07-24.pkl'
+file_name = 'training_data_6_0.52_09-09-24.pkl'
 # Per caricare gli array
 with open(file_name, 'rb') as file:
     data = pickle.load(file)

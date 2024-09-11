@@ -271,19 +271,19 @@ def train_and_evaluate(epochs):
     print(f"Inizializzato EVENT_LABELS: {EVENT_LABELS}")
     # Lista delle directory da rimuovere
     data_dir = "E:\\Cristian\\Code\\NeuralNetworkTesi\\GraphExplainability\\data\\"
-    directories_to_remove = [data_dir+"processed"]#, data_dir+"\\raw\\signal", data_dir+"\\raw\\singletop", data_dir+"\\raw\\ttbar"]
+    # directories_to_remove = [data_dir+"processed"]#, data_dir+"\\raw\\signal", data_dir+"\\raw\\singletop", data_dir+"\\raw\\ttbar"]
 
-    for directory in directories_to_remove:
-        if os.path.exists(directory):
-            if os.path.isdir(directory):
-                shutil.rmtree(directory)  # Usa rmtree se la directory può contenere file
-                print(f"Directory '{directory}' rimossa.")
-            else:
-                print(f"'{directory}' non è una directory.")
-        else:
-            print(f"Directory '{directory}' non esiste.")
+    # for directory in directories_to_remove:
+    #     if os.path.exists(directory):
+    #         if os.path.isdir(directory):
+    #             shutil.rmtree(directory)  # Usa rmtree se la directory può contenere file
+    #             print(f"Directory '{directory}' rimossa.")
+    #         else:
+    #             print(f"'{directory}' non è una directory.")
+    #     else:
+    #         print(f"Directory '{directory}' non esiste.")
 
-    print(f"Rimosse directory")
+    # print(f"Rimosse directory")
     num_dati_per_classe = min(EVENT_SUBSETS.values())
 
     #define the model
@@ -408,7 +408,7 @@ def train_and_evaluate(epochs):
         test_f1_scores.append(test_f1)
 
         print(f'Epoch: {epoch:03d} ')
-        if epoch==100 or  epoch==50 or  epoch==250 or  epoch==300 or  epoch==350:
+        if epoch==100 or  epoch==50 or  epoch==150 or  epoch==300 or  epoch==350:
             filepath = f'./checkpoint/checkpoint_epoch_{epoch:03d}_final_test.pt'    
             torch.save(model.state_dict(), filepath)
             print(test_acc_steps[-1])
@@ -913,4 +913,4 @@ class CustomEventsDataset(EventsDataset):
 #         plt.title('Confusion Matrix')
 #         plt.show()
 
-train_and_evaluate(epochs=400)
+train_and_evaluate(epochs=150)
