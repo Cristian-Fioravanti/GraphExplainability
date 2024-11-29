@@ -39,18 +39,3 @@ class GTLayer(nn.Module):
         h = h2 + h  # Residual connection
         
         return self.layernorm2(h)  # Layer norm
-    
-    # def forward_withoutMHFAtt(self,h1,h):
-    #     with torch.no_grad():
-    #         h = self.layernorm1(h + h1)  # Add node feature and compute layer norm
-    #         h = F.dropout(h, self.dropout) #Compute dropout
-
-    #         # Compute feed forward
-    #         h2 = h
-    #         h = self.FFN1(h)
-    #         h = self.gelu(h)
-    #         h = F.dropout(h, self.dropout)
-    #         h = self.FFN2(h)
-    #         h = h2 + h  # Residual connection
-
-    #         return self.layernorm2(h)  # Layer norm

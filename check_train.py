@@ -164,16 +164,16 @@ datajson = {
   "900_50": 0.28091603053435116
 }
 
-file_name = 'training_data_6_0.6_25-07-24.pkl'
-# Per caricare gli array
-with open(file_name, 'rb') as file:
-    data = pickle.load(file)
-with open("confusionPkl/confusion_data_5.pkl", 'rb') as file:
+# file_name = 'training_data_6_0.6_25-07-24.pkl'
+# # Per caricare gli array
+# with open(file_name, 'rb') as file:
+#     data = pickle.load(file)
+with open("confusion_data_7.pkl", 'rb') as file:
     event_selected = pickle.load(file)
 with open("./signal_info.pkl", 'rb') as file:
     signal_info = pickle.load(file)
 print(f"EVENT_SELECTED: {event_selected}")
-print(f"signal_info: {signal_info}")
+# print(f"signal_info: {signal_info}")
 # Accedi agli array caricati
 train_loss_steps = data['train_loss_steps']
 train_acc_steps = data['train_acc_steps']

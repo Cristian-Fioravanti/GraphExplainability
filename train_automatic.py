@@ -2,42 +2,27 @@
 from datetime import datetime
 import pickle
 import random
-import wandb
-# from sparticles.datasetstandard import DEFAULT_EVENT_SUBSETS
-# import torch_geometric as pygeo
-# import os
-# import torch.nn as nn
-# import torch.nn.functional as F
-# import torch.optim as optim
-# import torch.nn.init as init
-# import matplotlib.pyplot as plt
 import torch
 import torch.nn.functional as F
 from torch_geometric.utils import to_dense_adj
-# from sparticles import EventsDataset
 from sparticles.transforms import MakeHomogeneous
 from sparticles import plot_event_2d
 from torch_geometric.nn import global_mean_pool
 from torch.utils.data import Subset
 from torch_geometric.loader import DataLoader
 from sklearn.model_selection import train_test_split
-# from torch.optim.lr_scheduler import StepLR
 from tqdm import tqdm # for nice bar
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
-# import seaborn as sns
-# from sklearn.metrics import confusion_matrix
-# from torch_geometric.transforms import BaseTransform
-# import numpy as np
 from GraphModel.GraphTransformerModel import GraphTransformerModel
-# import pickle
 from utils import get_graph_pca
 from sklearn.metrics import confusion_matrix
 import matplotlib.pyplot as plt
 import seaborn as sns
 import shutil
+
 config=dict(
-      out_size = 6,
-      num_layers=9,
+      out_size = 7,
+      num_layers=3,
       hidden_size=60,
       input_size=12,
       num_heads= 30,
@@ -55,6 +40,7 @@ print(config)
 #set up the device
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+{'1000': 918, '350': 1377, '500': 711, '550': 812, 'ttbar': 6093298}
 
 
 #define optimizer, criterion and lr schedule
@@ -90,16 +76,16 @@ DEFAULT_EVENT_SUBSETS = {
 #   "singletop": 0,
 #   "ttbar": 0,
 #   "1000_0": 935,
-  "1000_100": 935,
-  "1000_150": 963,
-  "1000_200": 933,
-  "1000_250": 932,
-  "1000_300": 959,
-  "1000_350": 994,
-  "1000_400": 1003,
-  "1000_450": 4901,
-  "1000_500": 5050,
-  "1000_50": 918,
+#   "1000_100": 935,
+#   "1000_150": 963,
+#   "1000_200": 933,
+#   "1000_250": 932,
+#   "1000_300": 959,
+#   "1000_350": 994,
+#   "1000_400": 1003,
+#   "1000_450": 4901,
+#   "1000_500": 5050,
+#   "1000_50": 918,
   "1100_0": 4399,
   "1100_100": 4478,
   "1100_150": 4525,
@@ -115,7 +101,7 @@ DEFAULT_EVENT_SUBSETS = {
   "150_0": 13022,
   "152_22": 12538,
   "162_12": 11297,
-#   "165_35": 9321,
+  "165_35": 9321,
   "175_0": 9543,
   "175_25": 8800,
   "177_47": 6892,
@@ -190,13 +176,13 @@ DEFAULT_EVENT_SUBSETS = {
   "550_250": 812,
   "550_300": 3897,
   "550_50": 931,
-#   "585_450": 2067,
+  "585_450": 2067,
   "600_0": 978,
   "600_100": 915,
   "600_150": 968,
   "600_200": 965,
   "600_250": 960,
-#   "600_300": 857,
+  "600_300": 857,
   "600_350": 801,
   "600_400": 664,
   "600_450": 2494,
@@ -247,32 +233,31 @@ DEFAULT_EVENT_SUBSETS = {
   "900_150": 1018,
   "900_200": 988,
   "900_250": 1007,
-#   "900_300": 1039,
+  "900_300": 1039,
   "900_350": 1005,
   "900_400": 979,
   "900_450": 4943,
   "900_500": 4951,
   "900_50": 988
 }
-DEFAULT_EVENT_SUBSETS_COPY = DEFAULT_EVENT_SUBSETS.copy()
-EVENT_SELECTED = {'1000_0': 935, '585_450': 2067, '600_300': 857, '165_35': 9321, '900_300': 1039, 'ttbar':6093298}# { '800_450': 4753, '550_150': 905, '325_0': 2339}
+EVENT_SELECTED = {'1000': 918, 'ttbar':6093298}#, '600_300': 857, '165_35': 9321, '900_300': 1039, }# { '800_450': 4753, '550_150': 905, '325_0': 2339}
 EVENT_ACCURACY = {}
 EVENT_LABELS = {  #'ttbar':0, "singletop": 0
 }
 def train_and_evaluate(epochs):
-    global EVENT_SUBSETS, num_dati_per_classe, EVENT_SELECTED, config, EVENT_LABELS, DEFAULT_EVENT_SUBSETS
+    global EVENT_SUBSETS, num_dati_per_classe, EVENT_SELECTED, config, DEFAULT_EVENT_SUBSETS
     EVENT_SUBSETS = {}
     EVENT_LABELS = {}
     for key_sel,value_sel in EVENT_SELECTED.items():
         EVENT_SUBSETS[key_sel] = value_sel
         EVENT_LABELS[key_sel] = 0 if len(list(EVENT_LABELS.values())) == 0 else max(list(EVENT_LABELS.values())) + 1
-    # EVENT_LABELS["singletop"] = EVENT_LABELS['ttbar']
+
     print(f"Inizializzato EVENT_SUBSETS: {EVENT_SUBSETS}")
     print(f"Inizializzato EVENT_LABELS: {EVENT_LABELS}")
     # Lista delle directory da rimuovere
     data_dir = "E:\\Cristian\\Code\\NeuralNetworkTesi\\GraphExplainability\\data\\"
     directories_to_remove = [data_dir+"processed"]#, data_dir+"\\raw\\signal", data_dir+"\\raw\\singletop", data_dir+"\\raw\\ttbar"]
-
+    print(EVENT_LABELS)
     for directory in directories_to_remove:
         if os.path.exists(directory):
             if os.path.isdir(directory):
@@ -335,7 +320,6 @@ def train_and_evaluate(epochs):
         targets_train = []
 
         for data in tqdm(train_loader, leave=False):
-           
             data = data.to(device)
             out = model(data,int(data.x.shape[0] / 7),data.x.shape)
             data.y = data.y.to(device)
@@ -396,19 +380,11 @@ def train_and_evaluate(epochs):
                 test_loss_steps.append(loss.item())
                 test_acc_steps.append(accuracy_score(data.y.cpu().numpy(), pred_test.cpu().numpy()))
 
-        test_losses.append(total_loss / len(test_loader))
-        test_acc = accuracy_score(targets_test, predictions_test)
-        test_precision = precision_score(targets_test, predictions_test, average='macro', zero_division=0)
-        test_recall = recall_score(targets_test, predictions_test, average='macro', zero_division=0)
-        test_f1 = f1_score(targets_test, predictions_test, average='macro', zero_division=0)
-
-        test_accuracies.append(test_acc)
-        test_precisions.append(test_precision)
-        test_recalls.append(test_recall)
-        test_f1_scores.append(test_f1)
+       
+       
 
         print(f'Epoch: {epoch:03d} ')
-        if epoch==100 or  epoch==50 or  epoch==250 or  epoch==300 or  epoch==350:
+        if epoch==100 or  epoch==50 or  epoch==150 or  epoch==300 or  epoch==350:
             filepath = f'./checkpoint/checkpoint_epoch_{epoch:03d}_final_test.pt'    
             torch.save(model.state_dict(), filepath)
             print(test_acc_steps[-1])
@@ -615,10 +591,10 @@ class EventsDataset(InMemoryDataset):
                     if match:
                         primo_numero = match.group(1)
                         secondo_numero = match.group(2)
-                        if (primo_numero+"_"+secondo_numero in self.event_subsets.keys()):
+                        if (primo_numero in self.event_subsets.keys()):
                             SIGNAL_FILE_NAME.append(name_file_h5)
-                            if (primo_numero+'_'+secondo_numero not in EVENT_LABELS ):
-                                EVENT_LABELS[primo_numero+'_'+secondo_numero] = 0 if len(list(EVENT_LABELS.values())) == 0 else max(list(EVENT_LABELS.values())) + 1
+                            if (primo_numero not in EVENT_LABELS ):
+                                EVENT_LABELS[primo_numero] = 0 if len(list(EVENT_LABELS.values())) == 0 else max(list(EVENT_LABELS.values())) + 1
                 else:
                     continue
         
@@ -681,13 +657,13 @@ class EventsDataset(InMemoryDataset):
                     if match:
                         primo_numero = match.group(1)
                         secondo_numero = match.group(2)
-                        if (primo_numero+"_"+secondo_numero in self.event_subsets.keys()):
+                        if (primo_numero in self.event_subsets.keys()):
                             signal_file_path = os.path.join(dir_path, name_signal_file)
                             if os.path.exists(signal_file_path):
-                                if (primo_numero+'_'+secondo_numero not in h5_files):
-                                    h5_files[primo_numero+'_'+secondo_numero] = [signal_file_path]
+                                if (primo_numero not in h5_files):
+                                    h5_files[primo_numero] = [signal_file_path]
                                 else:
-                                    h5_files[primo_numero+'_'+secondo_numero].append(signal_file_path)
+                                    h5_files[primo_numero].append(signal_file_path)
             else:
                 if ('ttbar' in dir_path):
                     h5_files[d] = glob.glob(f'{dir_path}/*.h5', recursive=True)[0]
@@ -697,7 +673,6 @@ class EventsDataset(InMemoryDataset):
         
         compute_event_type = True
         # Convertiamo il dizionario in un iteratore
- 
 
         
         for current_event_type, current_h5_file in h5_files.items():
@@ -709,14 +684,21 @@ class EventsDataset(InMemoryDataset):
             if (compute_event_type):
                 if (isinstance(current_h5_file, list)):
                     for file in current_h5_file:
-                        data_list_ris, conta_dati_per_classe_ris, self.event_subsets = self.process_h5_file(current_event_type, file,self.event_subsets,conta_dati_per_classe,num_dati_per_classe)
-                        data_list+= data_list_ris
-                        conta_dati_per_classe = conta_dati_per_classe_ris
-                        if (conta_dati_per_classe==num_dati_per_classe):
-                            compute_event_type = False
+                        pattern = r'[a-zA-Z](\d+)p.*_(\d+)p'
+                        match = re.search(pattern, file)
+                        if match:
+                            primo_numero = match.group(1)
+                            num_graf_da_prendere = num_dati_per_classe // len(h5_files[primo_numero])
+                            data_list_ris, conta_dati_per_classe_ris, self.event_subsets = self.process_h5_file(current_event_type, file,self.event_subsets, num_dati_per_classe,conta_dati_per_classe, num_graf_da_prendere)
+                            data_list+= data_list_ris
+                            conta_dati_per_classe = conta_dati_per_classe_ris
+                            print(conta_dati_per_classe==num_dati_per_classe)
+                            if (conta_dati_per_classe==num_dati_per_classe):
+                                compute_event_type = False
 
                 else:
-                    data_list_ris, conta_dati_per_classe_ris, self.event_subsets = self.process_h5_file(current_event_type, current_h5_file,self.event_subsets,conta_dati_per_classe,num_dati_per_classe)
+                    num_graf_da_prendere = num_dati_per_classe // len(h5_files[primo_numero])
+                    data_list_ris, conta_dati_per_classe_ris, self.event_subsets = self.process_h5_file(current_event_type, current_h5_file,self.event_subsets,num_dati_per_classe,conta_dati_per_classe, num_graf_da_prendere)
                     data_list+= data_list_ris
                     conta_dati_per_classe = conta_dati_per_classe_ris
                     if (conta_dati_per_classe==num_dati_per_classe):
@@ -737,7 +719,7 @@ class EventsDataset(InMemoryDataset):
 
         torch.save((data, slices), self.processed_paths[0])
     
-    def process_h5_file(self,event_type, h5_file, EVENT_SUBSETS, conta_dati_per_classe, num_dati_per_classe):
+    def process_h5_file(self,event_type, h5_file, EVENT_SUBSETS, num_dati_per_classe,conta_dati_per_classe,num_graf_da_prendere):
         with open(signal_file_name_and_event_label, 'rb') as file:
             data = pickle.load(file)
             # Accedi agli array caricati
@@ -748,27 +730,32 @@ class EventsDataset(InMemoryDataset):
         EVENT_LABELS = self.event_label
         data_list = []
         label = EVENT_LABELS[event_type]
+        print(label)
         graphs = pd.read_hdf(h5_file)
         graphs.drop(columns=list(set(graphs.columns) - set(USEFUL_COLS)), inplace=True)
         graphs['nan'] = torch.nan
         graphs = graphs[USEFUL_COLS].reset_index()
+        
         print(EVENT_SUBSETS)
         EVENT_SUBSETS[event_type] += graphs.shape[0]
         # print('EVENT_SUBSETS: ' ,EVENT_SUBSETS[event_type])
         if (event_type not in 'ttbar' and event_type  not in  'singletop'):
-            if (graphs.shape[0]>=num_dati_per_classe-conta_dati_per_classe):
-                graphs = graphs.sample(n=num_dati_per_classe-conta_dati_per_classe, random_state=RANDOM_STATE)
-                conta_dati_per_classe += num_dati_per_classe-conta_dati_per_classe
+            
+            if (graphs.shape[0]>=num_graf_da_prendere):
+                graphs = graphs.sample(n=num_graf_da_prendere, random_state=RANDOM_STATE)
+                conta_dati_per_classe += num_graf_da_prendere
+                print("cacca")
             else:
                 graphs = graphs.sample(n=graphs.shape[0], random_state=RANDOM_STATE)
                 conta_dati_per_classe += graphs.shape[0]
+                print("cacca2")
         else:
             graphs = graphs.sample(n=num_dati_per_classe, random_state=RANDOM_STATE) # da fixare
         if (event_type not in 'ttbar' and event_type  not in  'singletop'):
             
             graphs = graphs.sample(n=graphs.shape[0], random_state=RANDOM_STATE)
         else:
-            graphs = graphs.sample(n=857, random_state=RANDOM_STATE)
+            graphs = graphs.sample(n=num_dati_per_classe, random_state=RANDOM_STATE)
         
         for row in tqdm(graphs.values, total=graphs.shape[0], desc=f'Processing events in {h5_file}'):
             event_id = int(row[0])
@@ -913,4 +900,4 @@ class CustomEventsDataset(EventsDataset):
 #         plt.title('Confusion Matrix')
 #         plt.show()
 
-train_and_evaluate(epochs=400)
+train_and_evaluate(epochs=200)

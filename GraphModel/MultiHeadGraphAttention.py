@@ -33,7 +33,7 @@ class MultiHeadGraphAttention(nn.Module):
         
         # Calcolo dell'attenzione
         scores = self.calculate_attention(q, k, v)
-
+        
         # Concatenazione delle teste
         concat = scores.transpose(1, 2).contiguous().view(batch_size, -1, self.num_heads * self.head_size)  # (batch_size, seq_length, hidden_size)
         
