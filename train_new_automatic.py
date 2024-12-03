@@ -23,7 +23,7 @@ from new_datasetClass import CustomEventsDataset
 from GraphModel.GraphTransformerModel import GraphTransformerModel
 
 config=dict(
-      out_size = 7,
+      out_size = 2,
       num_layers=3,
       hidden_size=60,
       input_size=12,
